@@ -35,7 +35,7 @@ class Judges::Pull
     baza = BazaRb.new(
       opts['host'], opts['port'].to_i, opts['token'],
       ssl: opts['ssl'],
-      timeout: (opts['timeout'] || 30).to_i,
+      timeout: (opts['timeout'] || 30).to_f,
       loog: @loog,
       retries: (opts['retries'] || 3).to_i
     )
@@ -65,16 +65,16 @@ class Judges::Pull
 
   def wait(name, baza, id, limit)
     raise(StandardError, 'Waiting time is nil') if limit.nil?
-    start = Time.now
+    start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     loop do
       break if baza.finished?(id)
+      raise(StandardError, "Time is over, the job ##{id} ('#{name}') is still not completed") if limit <= 0
       sleep(1)
-      if Time.now - start > limit
+      duration = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start
+      if duration > limit
         raise(StandardError, "Time is over, the job ##{id} ('#{name}') is still not completed")
       end
-      @loog.debug(
-        "Still waiting for the job ##{id} ('#{name}') to finish... (#{format('%.2f', Time.now - start)}s already)"
-      )
+      @loog.debug("Still waiting for the job ##{id} ('#{name}') to finish... (#{format('%.2f', duration)}s already)")
     end
     id
   end
